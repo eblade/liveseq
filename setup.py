@@ -3,7 +3,7 @@
 
 from distutils.core import setup
 
-name_ = 'live'
+name_ = 'liveseq'
 version_ = '0.0.1'
 
 classifiers = [
