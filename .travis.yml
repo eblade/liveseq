@@ -1,0 +1,13 @@
+language: python
+python:
+  - "3.3"
+# command to install dependencies
+before_install:
+  - "sudo apt-get install -qq g++"
+install:
+  - "pip install -r requirements.txt"
+  - "python setup.py install"    
+# command to run tests
+script: "py.test ."
+notifications:
+  email: false
