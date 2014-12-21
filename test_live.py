@@ -3,9 +3,9 @@
 import time
 import rtmidi
 from rtmidi.midiutil import open_midiport
-from korg import KorgNanoKontrol2
 
-from system import System
+from liveseq.korg import KorgNanoKontrol2
+from liveseq.system import System
 
 ktrl = KorgNanoKontrol2('k')
 s = System(controller=ktrl)

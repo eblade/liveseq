@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from router import Router
-from sequencer import Sequencer, Track
-from clock import Clock
-from midi import Device
+from .router import Router
+from .sequencer import Sequencer, Track
+from .clock import Clock
+from .midi import Device
 
 class System:
     def __init__(self, tempo=120, part=8, controller=None):

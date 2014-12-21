@@ -1,200 +1,78 @@
 #!/usr/bin/env python3
 
-class Device:
-    def __init__(self, identifier, router=None):
-        self.identifier = identifier
-        self.router = router
-        self.midi_identifier = None
+import rtmidi
+import sys
+import time
+from rtmidi.midiutil import open_midiport
 
-    def write(self, midi):
-        pass
 
-    def read(self, midi):
-        pass
+class MidiIn(object):
+    def __init__(self):
+        self._midi_in = None
+        self._midi_in_port = '<unknown>'
+        self.port_in = None
 
-class Controller(Device):
-    def __init__(self, identifier, router=None, sequencer=None):
-        super().__init__(identifier, router)
-        self.sequencer = sequencer
-        self.track_offset = 0
-        self._track_level = [0,0,0,0,0,0,0,0]
-        self._track_mod = [0,0,0,0,0,0,0,0]
-        self._track_solo = [0,0,0,0,0,0,0,0]
-        self._track_mute = [0,0,0,0,0,0,0,0]
-        self._track_record = [0,0,0,0,0,0,0,0]
-        self._forward = 0
-        self._backward = 0
-        self._stop = 0
-        self._play = 0
-        self._record = 0
-        self._cycle = 0
-        self._marker_set = 0
-        self._marker_prev = 0
-        self._marker_next = 0
-        self._track_prev = 0
-        self._track_next = 0
+    def __call__(self, event, data=None):
+        midi, deltatime = event
+        t, a, v = midi
+        print("[%s] >>> %r" % (self.port_in, midi))
+        self.on_midi(t, a, v)
 
-    @property
-    def track_level(self):
-        return self._track_level
+    def on_midi(self, t, a, v):
+        pass # implement this
 
-    @track_level.setter
-    def track_level(self, data):
-        track, value = data
-        self._track_level[track] = value
-        if not self.sequencer is None:
-            self.sequencer.track_level = (self.track_offset + track, value)
+    def __del__(self):
+        if self._midi_in is not None:
+            self._midi_in.close_port()
+            del self._midi_in
 
-    @property
-    def track_mod(self):
-        return self._track_mod
+    def open_midi_in(self, port):
+        try:
+            midiin, port_name = open_midiport(port, 'input', client_name='liveseq', interactive=False)
+        except (EOFError, KeyboardInterrupt):
+            sys.exit()
+        self._midi_in = midiin
+        self.port_in = port_name
+        midiin.set_callback(self)
+        print("MIDI In (virtual): %s" % port_name)
 
-    @track_mod.setter
-    def track_mod(self, data):
-        track, value = data
-        self._track_mod[track] = value
-        if not self.sequencer is None:
-            self.sequencer.track_mod = (self.track_offset + track, value)
+    def open_virtual_midi_in(self, port_name='virtual_input'):
+        midiin = rtmidi.MidiIn()
+        midiin.open_virtual_port(port_name)
+        self._midi_in = midiin
+        self.port_in = port_name
+        midiin.set_callback(self)
+        print("MIDI In: %s" % port_name)
 
-    @property
-    def track_solo(self):
-        return self._track_solo
 
-    @track_solo.setter
-    def track_solo(self, data):
-        track, value = data
-        self._track_solo[track] = value
-        if not self.sequencer is None:
-            self.sequencer.track_solo = (self.track_offset + track, value > 0)
 
-    @property
-    def track_mute(self):
-        return self._track_mute
+class MidiOut(object):
+    def __init__(self):
+        self._midi_out = None
+        self.port_out = None
 
-    @track_mute.setter
-    def track_mute(self, data):
-        track, value = data
-        self._track_mute[track] = value
-        if not self.sequencer is None:
-            self.sequencer.track_mute = (self.track_offset + track, value > 0)
+    def write_midi(self, t, a, v):
+        if self._midi_out is not None:
+            midi = [t, a, v]
+            print("[%s] <<< %r" % (self.port_out, midi))
+            self._midi_out.send_message(midi)
 
-    @property
-    def track_record(self):
-        return self._track_record
+    def __del__(self):
+        if self._midi_out is not None:
+            del self._midi_out
+        
+    def open_midi_out(self, port):
+        try:
+            midiout, port_name = open_midiport(port, 'output', client_name='liveseq', interactive=False)
+        except (EOFError, KeyboardInterrupt):
+            sys.exit()
+        self._midi_out = midiout
+        self.port_out = port_name
+        print("MIDI Out: %s" % port_name)
 
-    @track_record.setter
-    def track_record(self, data):
-        track, value = data
-        self._track_record[track] = value
-        #if not self.sequencer is None:
-        #    self.sequencer.track_record = (self.track_offset + track, value > 0)
-
-    @property
-    def backward(self):
-        return self._backward
-
-    @backward.setter
-    def backward(self, value):
-        self._backward = value
-        #if not self.sequencer is None:
-        #    self.sequencer.backward = value > 0
-
-    @property
-    def forward(self):
-        return self._forward
-
-    @forward.setter
-    def forward(self, value):
-        self._forward = value
-        #if not self.sequencer is None:
-        #    self.sequencer.forward = value > 0
-
-    @property
-    def play(self):
-        return self._play
-
-    @play.setter
-    def play(self, value):
-        self._play = value
-        if not self.sequencer is None:
-            self.sequencer.play = value > 0
-
-    @property
-    def stop(self):
-        return self._stop
-
-    @stop.setter
-    def stop(self, value):
-        self._stop = value
-        if not self.sequencer is None:
-            self.sequencer.stop = value > 0
-
-    @property
-    def record(self):
-        return self._record
-
-    @record.setter
-    def record(self, value):
-        self._record = value
-        #if not self.sequencer is None:
-        #    self.sequencer.record = value > 0
-
-    @property
-    def cycle(self):
-        return self._cycle
-
-    @cycle.setter
-    def cycle(self, value):
-        self._cycle = value
-        #if not self.sequencer is None:
-        #    self.sequencer.cycle = value > 0
-
-    @property
-    def marker_set(self):
-        return self._marker_set
-
-    @marker_set.setter
-    def marker_set(self, value):
-        self._marker_set = value
-        #if not self.sequencer is None:
-        #    self.sequencer.marker_set = value > 0
-
-    @property
-    def marker_prev(self):
-        return self._marker_prev
-
-    @marker_prev.setter
-    def marker_prev(self, value):
-        self._marker_prev = value
-        #if not self.sequencer is None:
-        #    self.sequencer.marker_prev = value > 0
-
-    @property
-    def marker_next(self):
-        return self._marker_next
-
-    @marker_next.setter
-    def marker_next(self, value):
-        self._marker_next = value
-        #if not self.sequencer is None:
-        #    self.sequencer.marker_next = value > 0
-
-    @property
-    def track_prev(self):
-        return self._track_prev
-
-    @track_prev.setter
-    def track_prev(self, value):
-        self._track_prev = value
-        #if not self.sequencer is None:
-        #    self.sequencer.track_prev = value > 0
-
-    @property
-    def track_next(self):
-        return self._track_next
-
-    @track_next.setter
-    def track_next(self, value):
-        self._track_next = value
-        #if not self.sequencer is None:
-        #    self.sequencer.track_next = value > 0
+    def open_virtual_midi_out(self, port_name='virtual_output'):
+        midiout = rtmidi.MidiOut()
+        midiout.open_virtual_port(port_name)
+        self._midi_out = midiout
+        self.port_out = port_name
+        print("MIDI Out (virtual): %s" % port_name)
